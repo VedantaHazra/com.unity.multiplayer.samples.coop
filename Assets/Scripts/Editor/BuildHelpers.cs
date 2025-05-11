@@ -185,7 +185,7 @@ internal static class BuildHelpers
         s_NbBuildsDone++;
         Debug.Log($"Starting build for {buildTarget.ToString()}");
 
-        await Task.Delay(100); // skipping some time to make sure debug logs are flushed before we build
+        //await Task.Delay(100); // skipping some time to make sure debug logs are flushed before we build
 
         var buildPathToUse = BuildPath(buildTarget.ToString());
         buildPathToUse += buildPathExtension;

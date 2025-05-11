@@ -226,10 +226,41 @@ namespace Unity.BossRoom.Gameplay.GameState
                 case CharacterTypeEnum.Mage:
                 case CharacterTypeEnum.Rogue:
                     // Every time a player's life state changes to fainted we check to see if game is over
+                    // if (message.NewLifeState == LifeState.Fainted)
+                    // {
+                    //     CheckForGameOver();
+                    // }
+
                     if (message.NewLifeState == LifeState.Fainted)
                     {
+                        if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(message.NetworkObjectId, out var netObj))
+                        {
+                            ulong faintedClientId = netObj.OwnerClientId;
+
+                            if (netObj.TryGetComponent<ServerCharacter>(out var faintedChar))
+                            {
+                                faintedChar.ShowGameLostClientRpc();
+                            }
+
+                            foreach (var kvp in NetworkManager.Singleton.ConnectedClients)
+                            {
+                                if (kvp.Key != faintedClientId)
+                                {
+                                    var playerObj = kvp.Value.PlayerObject;
+
+                                    if (playerObj.TryGetComponent<ServerCharacter>(out var otherChar))
+                                    {
+                                        otherChar.ShowGameWonClientRpc();
+                                    }
+                                }
+                            }
+                        }
+
                         CheckForGameOver();
                     }
+
+
+
 
                     break;
                 case CharacterTypeEnum.ImpBoss:
@@ -274,5 +305,23 @@ namespace Unity.BossRoom.Gameplay.GameState
 
             SceneLoaderWrapper.Instance.LoadScene("PostGame", useNetworkSceneManager: true);
         }
+
+        //     [ClientRpc]
+        //     private void ShowIndividualGameOutcomeClientRpc(ulong faintedClientId, ClientRpcParams allClients)
+        //     {
+        //         if (NetworkManager.Singleton.LocalClientId == faintedClientId)
+        //         {
+        //             // The player who fainted sees "Game Lost"
+        //             SceneLoaderWrapper.Instance.LoadScene("PlayerLost", useNetworkSceneManager: false);
+        //         }
+        //         else
+        //         {
+        //             // Other players see "Game Won"
+        //             SceneLoaderWrapper.Instance.LoadScene("PlayerWon", useNetworkSceneManager: false);
+        //         }
+        //     }
+
+        // }
+
     }
 }

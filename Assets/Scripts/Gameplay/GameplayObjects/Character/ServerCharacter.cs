@@ -6,8 +6,10 @@ using Unity.BossRoom.Gameplay.GameplayObjects.Character.AI;
 using Unity.Multiplayer.Samples.BossRoom;
 using Unity.Netcode;
 using UnityEngine;
+using System.Collections.Generic;
 using UnityEngine.Serialization;
 using Action = Unity.BossRoom.Gameplay.Actions.Action;
+using Unity.BossRoom.Gameplay.UI;
 
 namespace Unity.BossRoom.Gameplay.GameplayObjects.Character
 {
@@ -140,6 +142,72 @@ namespace Unity.BossRoom.Gameplay.GameplayObjects.Character
         private AIBrain m_AIBrain;
         NetworkAvatarGuidState m_State;
 
+        [Header("UI References")]
+        [SerializeField] private GameObject gameLostPanel;
+        [SerializeField] private GameObject gameWonPanel;
+
+
+        [ClientRpc]
+        public void ShowGameLostClientRpc(ClientRpcParams rpcParams = default)
+        {
+            if (IsOwner && gameLostPanel != null)
+            {
+                gameLostPanel.SetActive(true);
+            }
+        }
+
+        [ClientRpc]
+        public void ShowGameWonClientRpc(ClientRpcParams rpcParams = default)
+        {
+            if (IsOwner && gameWonPanel != null)
+            {
+                gameWonPanel.SetActive(true);
+                //urlScript = GameObject.Find("ProcessDeepLinkMngr").GetComponent<ProcessDeepLinkMngr>();
+
+            }
+        }
+
+        public void HandleGameOver(ulong loserClientId)
+        {
+
+            // Show "Game Lost" only to the player who lost
+            ShowGameLostClientRpc(new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams
+                {
+                    TargetClientIds = new List<ulong> { loserClientId }
+                }
+            });
+
+            foreach (var serverCharacter in PlayerServerCharacter.GetPlayerServerCharacters())
+            {
+                // if any player is alive just return
+                if (serverCharacter && serverCharacter.LifeState == LifeState.Alive)
+                {
+                    serverCharacter.ShowGameWonClientRpc();
+
+                    // Add win API here winAPI
+                }
+            }
+            // // Get all connected clients
+            // var allClients = NetworkManager.Singleton.ConnectedClientsIds;
+
+            // // Remove the loser from the list
+            // List<ulong> winnerClientIds = new List<ulong>(allClients);
+            // winnerClientIds.Remove(loserClientId);
+
+            // // Show "Game Won" to all others
+            // ShowGameWonClientRpc(new ClientRpcParams
+            // {
+            //     Send = new ClientRpcSendParams
+            //     {
+            //         TargetClientIds = winnerClientIds
+            //     }
+            // });
+        }
+
+
+
         void Awake()
         {
             m_ServerActionPlayer = new ServerActionPlayer(this);
@@ -150,6 +218,12 @@ namespace Unity.BossRoom.Gameplay.GameplayObjects.Character
 
         public override void OnNetworkSpawn()
         {
+            if (IsOwner)
+            {
+                // Ensure panels are hidden at start
+                if (gameLostPanel != null) gameLostPanel.SetActive(false);
+                if (gameWonPanel != null) gameWonPanel.SetActive(false);
+            }
             if (!IsServer) { enabled = false; }
             else
             {
@@ -278,6 +352,11 @@ namespace Unity.BossRoom.Gameplay.GameplayObjects.Character
                 m_ServerActionPlayer.ClearActions(true);
                 m_Movement.CancelMove();
             }
+            if (lifeState == LifeState.Fainted && IsServer)
+            {
+                HandleGameOver(OwnerClientId);
+            }
+
         }
 
         IEnumerator KilledDestroyProcess()
